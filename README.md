@@ -1,5 +1,7 @@
 # Scenario CLIP Model
 
+The proposed ScenarioCLIP model with EMA-based knowledge distillation is implemented as ScenarioCLIP1. The variant without KD is implemented as ScenarioCLIP0.
+
 ## Environment
 
 Create the environment using [`requirements.txt`](./requirements.txt) or [`env.yml`](./env.yml). Alternatively, create it using the command:
