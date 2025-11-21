@@ -128,11 +128,6 @@ class ScenarioCLIP1(L.LightningModule):
                 continue  # handled in special group below
             (nodecay if no_decay(n) else decay).append(p)
 
-        # temp for resume
-        warmup_ratio = 0.05
-        lr_floor = 3e-6
-        weight_decay = 0.08
-
         # param groups:
         # - model & other losses (incl. ContrastiveLoss.logit_scale) get normal WD rules
         # - DistillationLoss.logit_scale_s gets NO WD and a smaller LR
@@ -168,12 +163,6 @@ class ScenarioCLIP1(L.LightningModule):
             "optimizer": opt,
             "lr_scheduler": {"scheduler": sched, "interval": "step"},
         }
-    
-    def on_fit_start(self):
-        target_lr = 1e-5
-        for opt in self.trainer.optimizers:
-            for pg in opt.param_groups:
-                pg["lr"] = min(pg.get("lr", target_lr), target_lr)
 
     
     def on_save_checkpoint(self, checkpoint):

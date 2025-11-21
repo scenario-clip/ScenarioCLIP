@@ -103,12 +103,6 @@ class ScenarioCLIP0(L.LightningModule):
             if p.requires_grad:
                 (nodecay if no_decay(n) else decay).append(p)
 
-        # temp for resume
-        warmup_ratio = 0.05
-        lr_floor = 3e-6
-        weight_decay = 0.08
-        ####
-
         opt = AdamW(
             [{"params": decay,   "weight_decay": weight_decay},
             {"params": nodecay, "weight_decay": 0.0}],
@@ -136,12 +130,7 @@ class ScenarioCLIP0(L.LightningModule):
                 "interval": "step",
             },
         }
-    
-    def on_fit_start(self):
-        target_lr = 1e-5
-        for opt in self.trainer.optimizers:
-            for pg in opt.param_groups:
-                pg["lr"] = min(pg.get("lr", target_lr), target_lr)
+
 
     def training_step(self, batch, batch_idx):
         # Global Level
