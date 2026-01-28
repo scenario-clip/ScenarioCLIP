@@ -100,37 +100,29 @@ class ScenarioCLIP1(L.LightningModule):
             return opt
 
         def no_decay(name: str) -> bool:
-            # keep as-is: norms/biases have no weight decay
             return name.endswith(".bias") or ("norm" in name.lower()) or ("ln" in name.lower())
 
-        # collect named params from model + loss modules
         named = list(self.model.named_parameters())
         named += [(f"global_loss.{n}", p)   for n, p in self.global_loss.named_parameters()]
         named += [(f"object_loss.{n}", p)   for n, p in self.object_loss.named_parameters()]
         named += [(f"relation_loss.{n}", p) for n, p in self.relation_loss.named_parameters()]
 
-        # --- ONLY collect distillation temperatures (logit_scale_s) for special handling ---
         dist_temp_params = []
         for loss_mod in (self.global_loss, self.object_loss, self.relation_loss):
-            # either type-check or attribute-check; attr is robust
             if hasattr(loss_mod, "logit_scale_s"):
                 p = getattr(loss_mod, "logit_scale_s")
                 if isinstance(p, nn.Parameter) and p.requires_grad:
                     dist_temp_params.append(p)
         dist_temp_ids = {id(p) for p in dist_temp_params}
 
-        # build decay / nodecay for everything EXCEPT distillation temps
         decay, nodecay = [], []
         for n, p in named:
             if not p.requires_grad:
                 continue
             if id(p) in dist_temp_ids:
-                continue  # handled in special group below
+                continue
             (nodecay if no_decay(n) else decay).append(p)
 
-        # param groups:
-        # - model & other losses (incl. ContrastiveLoss.logit_scale) get normal WD rules
-        # - DistillationLoss.logit_scale_s gets NO WD and a smaller LR
         param_groups = [
             {"params": decay,   "weight_decay": weight_decay},
             {"params": nodecay, "weight_decay": 0.0},
@@ -139,12 +131,11 @@ class ScenarioCLIP1(L.LightningModule):
             param_groups.append({
                 "params": dist_temp_params,
                 "weight_decay": 0.0,
-                "lr": self.lr * 0.1,  # tune 0.05–0.2× if needed
+                "lr": self.lr * 0.1,
             })
 
         opt = AdamW(param_groups, lr=self.lr, betas=(0.9, 0.999), eps=1e-8)
 
-        # scheduler unchanged
         total_steps = getattr(self.trainer, "estimated_stepping_batches", None)
         if total_steps is None:
             steps_per_epoch = len(self.trainer.datamodule.train_dataloader())
@@ -164,7 +155,7 @@ class ScenarioCLIP1(L.LightningModule):
             "lr_scheduler": {"scheduler": sched, "interval": "step"},
         }
 
-    
+
     def on_save_checkpoint(self, checkpoint):
         if hasattr(self, "ema") and self.ema is not None:
             checkpoint["ema"] = {
